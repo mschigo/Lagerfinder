@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Lagerfinder Bauteile</title>
+<style>
+/* Layout: schmale Mobile-Liste, Detailansicht mit Regal-Skizze, Hash-Routing */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --fg:#14232b; --muted:#5d6e77; --line:#d9e0e4;
+  --accent:#0b6e8a; --accent-fg:#ffffff; --ok:#1b7f4b; --warn:#b36b00; --low:#b3261e;
+  --cell:#e8edf0; --cell-hit:#0b6e8a;
+  --font-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-head:"Space Grotesk","Inter",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a20; --surface:#17252d; --fg:#e6eef2; --muted:#93a6b0; --line:#28394238;
+  --line:#2a3b44; --accent:#4cc3e3; --accent-fg:#06222b; --ok:#5fcf93; --warn:#f0b24c; --low:#ff8f86;
+  --cell:#22333c; --cell-hit:#4cc3e3; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a20; --surface:#17252d; --fg:#e6eef2; --muted:#93a6b0; --line:#2a3b44;
+  --accent:#4cc3e3; --accent-fg:#06222b; --ok:#5fcf93; --warn:#f0b24c; --low:#ff8f86;
+  --cell:#22333c; --cell-hit:#4cc3e3; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.45;margin:0}
+.wrap{max-width:640px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-family:var(--font-head);font-size:1.6rem;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--font-head);font-size:1.5rem;margin:4px 0 0;text-wrap:balance}
+.eyebrow{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.sub{color:var(--muted);margin:4px 0 16px}
+input[type=search]{width:100%;font:inherit;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+input:focus-visible,a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+.chip{font:inherit;font-size:.85rem;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;text-decoration:none;color:inherit;min-height:64px}
+.item:active{background:var(--cell)}
+.item .main{flex:1;min-width:0}
+.item .name{font-weight:600}
+.item .meta{font-size:.82rem;color:var(--muted);font-family:var(--font-mono)}
+.loc{font-family:var(--font-mono);font-size:.85rem;font-weight:600;color:var(--accent);white-space:nowrap}
+.arrow{color:var(--muted)}
+.back{display:inline-block;margin-bottom:12px;color:var(--accent);text-decoration:none;font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:16px}
+.bigloc{font-family:var(--font-mono);font-size:2rem;font-weight:700;color:var(--accent);margin:2px 0 0;letter-spacing:.02em}
+dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0}
+dt{color:var(--muted);font-size:.9rem}
+dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.stock{font-weight:600}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.low{color:var(--low)}
+.shelf{display:grid;gap:6px;margin-top:12px}
+.shelf .row{display:grid;grid-template-columns:28px repeat(4,1fr);gap:6px;align-items:stretch}
+.shelf .lbl{font-family:var(--font-mono);font-size:.75rem;color:var(--muted);display:flex;align-items:center}
+.shelf .c{background:var(--cell);border-radius:5px;height:38px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
+.shelf .c.hit{background:var(--cell-hit);color:var(--accent-fg);font-weight:700}
+.shelf .head .c{background:none;height:auto;font-size:.75rem}
+.empty{color:var(--muted);text-align:center;padding:24px 0}
+.foot{margin-top:28px;font-size:.78rem;color:var(--muted)}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+// Beispieldaten (Prototyp)
+const PARTS = [
+  {id:"p-1001", nr:"M-1001", name:"Zylinderschraube M6×20", cat:"Verbindungselemente", qty:1240, min:300, halle:"A", regal:"03", fach:"B2", note:"ISO 4762, Stahl 8.8, verzinkt. Karton à 200 Stück."},
+  {id:"p-1002", nr:"M-1002", name:"Kugellager 6204-2RS", cat:"Lager", qty:48, min:20, halle:"A", regal:"05", fach:"A4", note:"Rillenkugellager, beidseitig gedichtet, 20×47×14 mm."},
+  {id:"p-1003", nr:"E-2010", name:"Näherungssensor induktiv M12", cat:"Sensorik", qty:17, min:15, halle:"B", regal:"01", fach:"C1", note:"PNP, Schaltabstand 4 mm, 10–30 V DC, M12-Stecker."},
+  {id:"p-1004", nr:"E-2044", name:"Schrittmotor NEMA 17", cat:"Antriebe", qty:9, min:10, halle:"B", regal:"02", fach:"A3", note:"1.8° pro Schritt, 1.7 A, Haltemoment 0.45 Nm."},
+  {id:"p-1005", nr:"M-1120", name:"Linearführung MGN12H", cat:"Lager", qty:26, min:8, halle:"A", regal:"06", fach:"D1", note:"Schiene 300 mm inkl. Wagen, Präzisionsklasse H."},
+  {id:"p-1006", nr:"E-2101", name:"Servoregler 48 V / 10 A", cat:"Antriebe", qty:4, min:5, halle:"B", regal:"02", fach:"B4", note:"CANopen, Positionsregelung. Nur im verschlossenen Fach."},
+  {id:"p-1007", nr:"M-1203", name:"O-Ring 20×2 NBR", cat:"Dichtungen", qty:560, min:100, halle:"A", regal:"08", fach:"A1", note:"NBR 70 Shore A, Beutel à 50 Stück."},
+  {id:"p-1008", nr:"E-2230", name:"Encoder inkremental 1024 ppr", cat:"Sensorik", qty:12, min:6, halle:"B", regal:"01", fach:"D3", note:"Hohlwelle 8 mm, A/B/Z-Signal, 5 V TTL."},
+  {id:"p-1009", nr:"M-1310", name:"Passfeder A 5×5×20", cat:"Verbindungselemente", qty:310, min:50, halle:"A", regal:"03", fach:"C3", note:"DIN 6885, Stahl blank."},
+  {id:"p-1010", nr:"E-2305", name:"Netzteil 24 V / 5 A DIN-Schiene", cat:"Elektrik", qty:7, min:4, halle:"B", regal:"04", fach:"A2", note:"Weitbereichseingang 100–240 V AC, Hutschienenmontage."}
+];
+const ROWS=["A","B","C","D"], COLS=["1","2","3","4"];
+const app=document.getElementById("app");
+let q="", cat="Alle";
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const loc=p=>`${p.halle}-${p.regal}-${p.fach}`;
+function status(p){
+  if(p.qty<p.min) return ["Nachbestellen","low"];
+  if(p.qty<p.min*1.5) return ["Knapp","warn"];
+  return ["Auf Lager","ok"];
+}
+
+function renderList(){
+  const cats=["Alle",...new Set(PARTS.map(p=>p.cat))];
+  app.innerHTML=`
+    <div class="eyebrow">Lager Halle A und B</div>
+    <h1>Bauteile</h1>
+    <p class="sub">Bauteil antippen, um den Lagerort zu sehen.</p>
+    <input type="search" id="q" placeholder="Suche nach Name oder Nummer" value="${esc(q)}" autocomplete="off">
+    <div class="chips" id="chips">${cats.map(c=>`<button class="chip" aria-pressed="${c===cat}" data-c="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+    <ul id="list"></ul>
+    <div class="foot">Prototyp mit Beispieldaten.</div>`;
+  const input=document.getElementById("q");
+  input.addEventListener("input",e=>{q=e.target.value;fillList()});
+  document.getElementById("chips").addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return; cat=b.dataset.c;
+    document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.c===cat));
+    fillList();
+  });
+  fillList();
+}
+function fillList(){
+  const t=q.trim().toLowerCase();
+  const res=PARTS.filter(p=>(cat==="Alle"||p.cat===cat)&&(!t||p.name.toLowerCase().includes(t)||p.nr.toLowerCase().includes(t)));
+  document.getElementById("list").innerHTML=res.length?res.map(p=>`
+    <li><a class="item" href="#${p.id}">
+      <div class="main"><div class="name">${esc(p.name)}</div><div class="meta">${esc(p.nr)}</div></div>
+      <div class="loc">${loc(p)}</div><span class="arrow" aria-hidden="true">›</span>
+    </a></li>`).join(""):`<li class="empty">Kein Bauteil gefunden.</li>`;
+}
+
+function renderDetail(p){
+  const [st,cls]=status(p);
+  const grid=`<div class="shelf" role="img" aria-label="Regal ${p.regal}, Fach ${p.fach}">
+    <div class="row head"><span></span>${COLS.map(c=>`<div class="c">${c}</div>`).join("")}</div>
+    ${ROWS.map(r=>`<div class="row"><span class="lbl">${r}</span>${COLS.map(c=>{
+      const hit=(r+c)===p.fach; return `<div class="c${hit?" hit":""}">${hit?r+c:""}</div>`}).join("")}</div>`).join("")}
+  </div>`;
+  app.innerHTML=`
+    <a class="back" href="#">‹ Alle Bauteile</a>
+    <div class="eyebrow">${esc(p.nr)} · ${esc(p.cat)}</div>
+    <h2>${esc(p.name)}</h2>
+    <div class="card">
+      <div class="eyebrow">Lagerort</div>
+      <div class="bigloc">${loc(p)}</div>
+      <dl style="margin-top:12px">
+        <dt>Halle</dt><dd>${p.halle}</dd>
+        <dt>Regal</dt><dd>${p.regal}</dd>
+        <dt>Fach</dt><dd>${p.fach}</dd>
+      </dl>
+      ${grid}
+    </div>
+    <div class="card">
+      <dl>
+        <dt>Bestand</dt><dd class="stock ${cls}">${p.qty} Stk. · ${st}</dd>
+        <dt>Mindestbestand</dt><dd>${p.min} Stk.</dd>
+      </dl>
+      <p style="margin:14px 0 0;color:var(--muted)">${esc(p.note)}</p>
+    </div>`;
+  window.scrollTo(0,0);
+}
+
+function route(){
+  const id=location.hash.slice(1);
+  const p=PARTS.find(x=>x.id===id);
+  p?renderDetail(p):renderList();
+}
+window.addEventListener("hashchange",route);
+route();
+</script>
+</body>
+</html>
